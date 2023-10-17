@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mengambil Gambar</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+
+</head>
+
+<body>
+    <div id="section-capture" class="pt-5">
+        <div class="container">
+            <div class="row justify-content-center text-center">
+                <div class="col-8">
+                    <h2>Mengambil Gambar</h2><br>
+                    <video id="video" width="640" height="480" autoplay></video><br>
+                    <button class="btn btn-primary" id="captureButton">Ambil Foto</button>
+                    <button class="btn btn-success" id="uploadButton" disabled>Kirim</button>
+                </div>
+            </div>
+        </div>
+    </div>z
+
+
+    <script>
+        const video = document.getElementById('video');
+        const captureButton = document.getElementById('captureButton');
+        const uploadButton = document.getElementById('uploadButton');
+        let stream;
+        let uploadcareURL;
+
+        // Fungsi untuk mengambil gambar dari kamera dan menampilkan di elemen video.
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: true
+                });
+                video.srcObject = stream;
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+            }
+        }
+
+        // Fungsi untuk mengambil gambar dari kamera dan menampilkan di elemen video.
+        function captureImage() {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Menghentikan streaming dari kamera.
+            stream.getTracks().forEach(track => track.stop());
+
+            // Menghentikan video agar tidak tampil setelah gambar diambil.
+            video.pause();
+
+            // Mengubah gambar menjadi data URL dan menampilkannya.
+            const dataURL = canvas.toDataURL();
+            video.srcObject = null;
+            video.src = dataURL;
+            uploadButton.disabled = false;
+
+            // Mengunggah gambar ke Uploadcare.
+            uploadImageToUploadcare(dataURL);
+        }
+
+        // Fungsi untuk mengunggah gambar ke Uploadcare.
+        function uploadImageToUploadcare(dataURL) {
+            // Konversi data URL menjadi file Blob.
+            const byteString = atob(dataURL.split(',')[1]);
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            const blob = new Blob([ab], {
+                type: 'image/jpeg'
+            });
+
+            // Membuat FormData dan menambahkan file yang diunggah.
+            const pubKey = '448aa6eb11abd3614ce5';
+            const formData = new FormData();
+            formData.append('file', blob, 'image.jpg');
+            formData.append('UPLOADCARE_PUB_KEY', pubKey);
+
+            // Menggunakan Fetch API untuk mengirim permintaan POST ke Uploadcare.
+            fetch('https://upload.uploadcare.com/base/', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Menyimpan URL gambar dari Uploadcare.
+                    uploadcareURL = data.file;
+                })
+                .catch(error => {
+                    console.error('Error uploading image to Uploadcare:', error);
+                });
+        }
+
+        // Fungsi untuk mengirim HTTP POST request dengan body JSON {"image": uploadcareURL}.
+        function sendPostRequest() {
+            if (!uploadcareURL) {
+                alert('Silakan ambil dan unggah foto terlebih dahulu.');
+                return;
+            }
+
+            const payload = {
+                image: "https://ucarecdn.com/" + uploadcareURL + "/"
+            };
+
+            fetch('http://127.0.0.1:5000/absen/testferdy', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Tambahkan logika apa yang ingin dilakukan setelah POST request berhasil.
+                    console.log('Response from server:', data);
+                })
+                .catch(error => {
+                    console.error('Error sending POST request:', error);
+                });
+
+        }
+
+        // Menjalankan fungsi startCamera saat halaman dimuat.
+        startCamera();
+
+        // Menambahkan event listener untuk tombol captureButton dan uploadButton.
+        captureButton.addEventListener('click', captureImage);
+        uploadButton.addEventListener('click', sendPostRequest);
+    </script>
+
+    <!-- Eksternal JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+
+</body>
+
+</html>
